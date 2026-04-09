@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwirkle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app"></div>
+    <script src="elm.js"></script>
+    <script>
+        var storedToken = localStorage.getItem('qwirkle_token');
+        var app = Elm.Main.init({
+            node: document.getElementById('app'),
+            flags: {
+                token: storedToken || null
+            }
+        });
+
+        // Token storage port
+        if (app.ports.storeToken) {
+            app.ports.storeToken.subscribe(function(token) {
+                if (token) {
+                    localStorage.setItem('qwirkle_token', token);
+                } else {
+                    localStorage.removeItem('qwirkle_token');
+                }
+            });
+        }
+
+        // SSE ports
+        var eventSource = null;
+        if (app.ports.sseConnect) {
+            app.ports.sseConnect.subscribe(function(url) {
+                if (eventSource) eventSource.close();
+                var token = localStorage.getItem('qwirkle_token');
+                eventSource = new EventSource(url + '?token=' + encodeURIComponent(token || ''));
+                eventSource.onmessage = function(event) {
+                    app.ports.sseReceived.send(event.data);
+                };
+                var eventTypes = ['tiles_played','tiles_swapped','turn_changed','game_over','player_joined','instant_game_started'];
+                eventTypes.forEach(function(name) {
+                    eventSource.addEventListener(name, function(event) {
+                        app.ports.sseReceived.send(JSON.stringify({type: name, data: JSON.parse(event.data)}));
+                    });
+                });
+            });
+        }
+        if (app.ports.sseDisconnect) {
+            app.ports.sseDisconnect.subscribe(function() {
+                if (eventSource) { eventSource.close(); eventSource = null; }
+            });
+        }
+    </script>
+</body>
+</html>
