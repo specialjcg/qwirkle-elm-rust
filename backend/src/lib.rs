@@ -2,6 +2,7 @@ pub mod api;
 pub mod config;
 pub mod db;
 pub mod domain;
+pub mod neural;
 pub mod sse;
 
 use std::sync::Arc;
